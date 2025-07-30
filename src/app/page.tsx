@@ -1,103 +1,162 @@
-import Image from "next/image";
+"use client";
+import { ShoppingItem } from "@/generated/prisma";
+import { FormEvent, useEffect, useState } from "react";
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [items, setItems] = useState<ShoppingItem[]>([]);
+  const [name, setName] = useState("");
+  const [quantity, setQuantity] = useState("");
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  const fetchItems = async () => {
+    const res = await fetch("/api/items");
+    const data: ShoppingItem[] = await res.json();
+    setItems(data);
+  };
+
+  useEffect(() => {
+    fetchItems();
+  }, []);
+
+  const handleAddItem = async (e: FormEvent) => {
+    console.log("add item handle");
+    e.preventDefault();
+    if (!name) return;
+
+    await fetch("/api/items", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name, quantity: quantity }),
+    });
+
+    setName("");
+    setQuantity("");
+    fetchItems();
+  };
+
+  const handleTogglePurchased = async (item: ShoppingItem) => {
+    await fetch(`/api/items/${item.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...item, purchased: !item.purchased }),
+    });
+    fetchItems();
+  };
+
+  const handleDeleteItem = async (id: string) => {
+    await fetch(`/api/items/${id}`, {
+      method: "DELETE",
+    });
+    fetchItems();
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <main className="container mx-auto max-w-2xl p-4">
+        <h1 className="text-4xl text-black font-bold text-center mb-8">
+          Ortak Ev Alışveriş Listesi
+        </h1>
+
+        <form
+          onSubmit={handleAddItem}
+          className="bg-white p-6 rounded-lg shadow-md mb-8 flex flex-col sm:flex-row gap-4"
+        >
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ürün adı (örn: Süt)"
+            required
+            className="flex-grow p-2 border text-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <input
+            type="text"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+            placeholder="Ürün miktarı (örn: 2 Litre)"
+            className="flex-grow p-2 border text-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+
+          <button
+            type="submit"
+            className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600 transition-colors"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            Ekle
+          </button>
+        </form>
+
+        <div className="space-y-4 ">
+          <h2 className="text-2xl font-semibold text-gray-900">Alınacaklar</h2>
+          {items
+            .filter((item) => !item.purchased)
+            .map((item) => (
+              <div
+                key={item.id}
+                className="bg-white p-4 rounded-lg shadow-md flex items-center justify-between"
+              >
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={item.purchased}
+                    onChange={() => handleTogglePurchased(item)}
+                    className="h-6 w-6 rounded border-gray-300 text-green-500 focus:ring-green-500 cursor-pointer"
+                  />
+                  <div className="ml-4">
+                    <p className="text-lg font-medium text-gray-800">
+                      {item.name}
+                    </p>
+                    {item.quantity && (
+                      <p className="text-sm text-gray-500">{item.quantity}</p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleDeleteItem(item.id)}
+                  className="text-red-500 hover:text-red-700 font-semibold"
+                >
+                  Sil
+                </button>
+              </div>
+            ))}
+          {items.filter((item) => !item.purchased).length === 0 && (
+            <p className="text-gray-600">Alınacak bir şey kalmadı! 🎉</p>
+          )}
+        </div>
+
+        <div className="space-y-4 mt-12">
+          <h2 className="text-2xl font-semibold text-gray-900">Alınanlar</h2>
+          {items
+            .filter((item) => item.purchased)
+            .map((item) => (
+              <div
+                key={item.id}
+                className="bg-white p-4 rounded-lg shadow-inner flex items-center justify-between opacity-60"
+              >
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={item.purchased}
+                    onChange={() => handleTogglePurchased(item)}
+                    className="h-6 w-6 rounded border-gray-300 text-green-500 focus:ring-green-500 cursor-pointer"
+                  />
+                  <div className="ml-4">
+                    <p className="text-lg font-medium text-gray-800">
+                      {item.name}
+                    </p>
+                    {item.quantity && (
+                      <p className="text-sm text-gray-500">{item.quantity}</p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleDeleteItem(item.id)}
+                  className="text-red-500 hover:text-red-700 font-semibold"
+                >
+                  Sil
+                </button>
+              </div>
+            ))}
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
   );
 }
